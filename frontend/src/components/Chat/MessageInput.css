@@ -1,0 +1,103 @@
+.message-input-container {
+  position: relative;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-top: 1px solid var(--glass-border);
+  background: var(--bg-primary);
+}
+
+.emoji-picker-wrapper {
+  position: absolute;
+  bottom: 100%;
+  left: var(--spacing-xl);
+  margin-bottom: var(--spacing-sm);
+  z-index: 100;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+}
+
+.message-input {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-xl);
+}
+
+.input-action-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+}
+
+.input-action-btn:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+.message-textarea {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  padding: var(--spacing-md);
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: none;
+  transition: all var(--transition-base);
+}
+
+.message-textarea:focus {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+}
+
+.message-textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.send-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.send-btn:hover:not(:disabled) {
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
+.send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .message-input-container {
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+
+  .emoji-picker-wrapper {
+    left: var(--spacing-lg);
+    right: var(--spacing-lg);
+  }
+}
