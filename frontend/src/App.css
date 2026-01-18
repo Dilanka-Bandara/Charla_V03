@@ -1,0 +1,27 @@
+.app-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.loading-screen {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  color: var(--text-secondary);
+}
+
+.spinner.large {
+  width: 48px;
+  height: 48px;
+  border-width: 4px;
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    position: relative;
+  }
+}

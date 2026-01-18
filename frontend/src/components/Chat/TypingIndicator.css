@@ -1,0 +1,23 @@
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-xl);
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--text-tertiary);
+  border-radius: 50%;
+}
