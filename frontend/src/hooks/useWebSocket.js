@@ -2,50 +2,42 @@ import { useEffect, useCallback } from 'react';
 import websocketService from '../services/websocket';
 import { useAuth } from '../contexts/AuthContext';
 
-export const useWebSocket = (onMessage) => {
+export const useWebSocket = () => {
   const { user } = useAuth();
 
   useEffect(() => {
     if (user?.id) {
-      websocketService.connect(user.id);
-
-      return () => {
-        websocketService.disconnect();
-      };
+      websocketService.connect(user.id).catch(error => {
+        console.error('WebSocket connection failed:', error);
+      });
     }
-  }, [user]);
 
-  const subscribeToEvent = useCallback((event, callback) => {
-    websocketService.on(event, callback);
-    return () => websocketService.off(event, callback);
+    return () => {
+      // Don't disconnect on unmount, keep connection alive
+    };
+  }, [user?.id]);
+
+  const subscribeToEvent = useCallback((eventType, callback) => {
+    return websocketService.on(eventType, callback);
   }, []);
 
-  const sendMessage = useCallback((roomId, message) => {
-    websocketService.sendMessage(roomId, message);
-  }, []);
-
-  const sendTyping = useCallback((roomId, isTyping) => {
-    websocketService.sendTyping(roomId, isTyping);
-  }, []);
-
-  const sendReaction = useCallback((roomId, messageId, reaction) => {
-    websocketService.sendReaction(roomId, messageId, reaction);
+  const sendMessage = useCallback((message) => {
+    websocketService.sendMessage(message);
   }, []);
 
   const joinRoom = useCallback((roomId) => {
     websocketService.joinRoom(roomId);
   }, []);
 
-  const leaveRoom = useCallback((roomId) => {
-    websocketService.leaveRoom(roomId);
+  const sendTyping = useCallback((roomId, isTyping) => {
+    websocketService.sendTyping(roomId, isTyping);
   }, []);
 
   return {
     subscribeToEvent,
     sendMessage,
-    sendTyping,
-    sendReaction,
     joinRoom,
-    leaveRoom
+    sendTyping,
+    isConnected: websocketService.isConnected()
   };
 };
