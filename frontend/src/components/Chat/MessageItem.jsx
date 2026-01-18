@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FiTrash2 } from 'react-icons/fi';
+import { FiTrash2, FiDownload } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
 import { deleteMessage, addReaction } from '../../services/api';
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import './MessageItem.css';
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const MessageItem = ({ message, index }) => {
   const { user } = useAuth();
@@ -34,12 +35,23 @@ const MessageItem = ({ message, index }) => {
     }
   };
 
+  const handleDownload = () => {
+    const link = document.createElement('a');
+    link.href = `${API_URL}${message.file_url}`;
+    link.download = message.file_name || 'download';
+    link.click();
+  };
+
   const getReactionCount = () => {
     const counts = {};
     message.reactions?.forEach(reaction => {
       counts[reaction.emoji] = (counts[reaction.emoji] || 0) + 1;
     });
     return counts;
+  };
+
+  const isImage = (filename) => {
+    return /\.(jpg|jpeg|png|gif|webp)$/i.test(filename);
   };
 
   const reactionCounts = getReactionCount();
@@ -73,7 +85,31 @@ const MessageItem = ({ message, index }) => {
         )}
 
         <div className={`message-bubble ${isOwnMessage ? 'own' : 'other'}`}>
-          <p>{message.content}</p>
+          {message.message_type === 'file' ? (
+            <div className="message-file">
+              {message.file_url && isImage(message.file_name) ? (
+                <img 
+                  src={`${API_URL}${message.file_url}`} 
+                  alt={message.file_name}
+                  className="message-image"
+                />
+              ) : (
+                <div className="file-attachment">
+                  <span className="file-icon">📎</span>
+                  <span className="file-name">{message.file_name}</span>
+                </div>
+              )}
+              {message.content && message.content !== `📎 ${message.file_name}` && (
+                <p className="file-caption">{message.content}</p>
+              )}
+              <button className="download-btn" onClick={handleDownload}>
+                <FiDownload size={16} />
+                Download
+              </button>
+            </div>
+          ) : (
+            <p>{message.content}</p>
+          )}
           
           {isOwnMessage && (
             <span className="message-time-own">

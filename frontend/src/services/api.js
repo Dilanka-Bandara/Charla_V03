@@ -3,110 +3,92 @@ import axios from 'axios';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// Request interceptor
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
 
-// Auth APIs
-export const register = async (username, email, password, fullName) => {
-  const response = await api.post('/auth/register', {
-    username,
-    email,
-    password,
-    full_name: fullName
-  });
-  return response.data;
-};
+// Response interceptor
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
 
-export const login = async (username, password) => {
-  const response = await api.post('/auth/login', {
-    username,
-    password
-  });
-  return response.data;
-};
+// Auth
+export const login = (username, password) =>
+  api.post('/api/auth/login', new URLSearchParams({ username, password }));
 
-// User APIs
-export const getCurrentUser = async () => {
-  const response = await api.get('/users/me');
-  return response.data;
-};
+export const register = (username, email, password, fullName) =>
+  api.post('/api/auth/register', { username, email, password, full_name: fullName });
 
-export const getAllUsers = async () => {
-  const response = await api.get('/users');
-  return response.data;
-};
+// Users
+export const getCurrentUser = () => api.get('/api/users/me');
+export const getAllUsers = () => api.get('/api/users');
 
-export const updateProfile = async (data) => {
-  const response = await api.put('/users/me', data);
-  return response.data;
-};
+// Rooms
+export const getRooms = () => api.get('/api/rooms');
+export const getRoom = (roomId) => api.get(`/api/rooms/${roomId}`);
+export const createRoom = (roomData) => api.post('/api/rooms', roomData);
+export const joinRoom = (roomId) => api.post(`/api/rooms/${roomId}/join`);
 
-export const uploadAvatar = async (file) => {
+// NEW: Room Invites
+export const inviteToRoom = (roomId, userId) => 
+  api.post(`/api/rooms/${roomId}/invite`, { user_id: userId });
+
+export const getMyInvites = () => api.get('/api/rooms/invites');
+
+export const acceptInvite = (inviteId) => 
+  api.post(`/api/rooms/invites/${inviteId}/accept`);
+
+export const declineInvite = (inviteId) => 
+  api.post(`/api/rooms/invites/${inviteId}/decline`);
+
+// Messages
+export const getRoomMessages = (roomId) =>
+  api.get(`/api/rooms/${roomId}/messages`);
+
+export const createMessage = (messageData) =>
+  api.post('/api/messages', messageData);
+
+export const deleteMessage = (messageId) =>
+  api.delete(`/api/messages/${messageId}`);
+
+// NEW: File Upload
+export const uploadFile = async (file, roomId) => {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await api.post('/users/upload-avatar', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+  formData.append('room_id', roomId);
+  
+  return api.post('/api/messages/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
   });
-  return response.data;
 };
 
-// Room APIs
-export const getRooms = async () => {
-  const response = await api.get('/rooms');
-  return response.data;
-};
-
-export const createRoom = async (data) => {
-  const response = await api.post('/rooms', data);
-  return response.data;
-};
-
-export const joinRoom = async (roomId) => {
-  const response = await api.post(`/rooms/${roomId}/join`);
-  return response.data;
-};
-
-export const leaveRoom = async (roomId) => {
-  const response = await api.post(`/rooms/${roomId}/leave`);
-  return response.data;
-};
-
-// Message APIs
-export const getRoomMessages = async (roomId, limit = 50, offset = 0, search = null) => {
-  const response = await api.get(`/messages/room/${roomId}`, {
-    params: { limit, offset, search }
-  });
-  return response.data;
-};
-
-export const createMessage = async (data) => {
-  const response = await api.post('/messages', data);
-  return response.data;
-};
-
-export const deleteMessage = async (messageId) => {
-  const response = await api.delete(`/messages/${messageId}`);
-  return response.data;
-};
-
-export const addReaction = async (messageId, emoji) => {
-  const response = await api.post('/messages/reactions', {
-    message_id: messageId,
-    emoji
-  });
-  return response.data;
-};
+// Reactions
+export const addReaction = (messageId, emoji) =>
+  api.post(`/api/messages/${messageId}/reactions`, { emoji });
 
 export default api;

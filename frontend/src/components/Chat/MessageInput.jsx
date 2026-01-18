@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiSend, FiSmile, FiPaperclip } from 'react-icons/fi';
+import { FiSend, FiSmile, FiPaperclip, FiX } from 'react-icons/fi';
 import EmojiPicker from 'emoji-picker-react';
-import { createMessage } from '../../services/api';
+import { createMessage, uploadFile } from '../../services/api';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import toast from 'react-hot-toast';
 import './MessageInput.css';
@@ -11,7 +11,10 @@ const MessageInput = ({ roomId }) => {
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const { sendTyping } = useWebSocket();
 
@@ -42,17 +45,38 @@ const MessageInput = ({ roomId }) => {
     }, 1000);
   };
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Check file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size must be less than 10MB');
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!message.trim()) return;
+    if (!message.trim() && !selectedFile) return;
 
     try {
-      await createMessage({
-        content: message.trim(),
-        room_id: roomId,
-        message_type: 'text'
-      });
+      if (selectedFile) {
+        // Upload file
+        setUploading(true);
+        await uploadFile(selectedFile, roomId);
+        toast.success('File sent successfully!');
+        setSelectedFile(null);
+      } else {
+        // Send text message
+        await createMessage({
+          content: message.trim(),
+          room_id: roomId,
+          message_type: 'text'
+        });
+      }
 
       setIsTyping(false);
       sendTyping(roomId, false);
@@ -63,6 +87,8 @@ const MessageInput = ({ roomId }) => {
     } catch (error) {
       toast.error('Failed to send message');
       console.error('Failed to send message:', error);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -91,7 +117,34 @@ const MessageInput = ({ roomId }) => {
         </div>
       )}
 
+      {selectedFile && (
+        <div className="selected-file-preview">
+          <div className="file-info">
+            <span className="file-icon">📎</span>
+            <span className="file-name">{selectedFile.name}</span>
+            <span className="file-size">
+              ({(selectedFile.size / 1024).toFixed(1)} KB)
+            </span>
+          </div>
+          <button
+            type="button"
+            className="remove-file-btn"
+            onClick={() => setSelectedFile(null)}
+          >
+            <FiX size={18} />
+          </button>
+        </div>
+      )}
+
       <form className="message-input glass-card" onSubmit={handleSubmit}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+          accept="image/*,.pdf,.doc,.docx,.txt"
+        />
+
         <button
           type="button"
           className="input-action-btn"
@@ -105,15 +158,17 @@ const MessageInput = ({ roomId }) => {
           value={message}
           onChange={handleInputChange}
           onKeyPress={handleKeyPress}
-          placeholder="Type a message..."
+          placeholder={selectedFile ? "Add a caption (optional)" : "Type a message..."}
           rows="1"
           className="message-textarea"
+          disabled={uploading}
         />
 
         <button
           type="button"
           className="input-action-btn"
-          title="Attach file (Coming soon)"
+          onClick={() => fileInputRef.current?.click()}
+          title="Attach file"
         >
           <FiPaperclip size={22} />
         </button>
@@ -121,11 +176,15 @@ const MessageInput = ({ roomId }) => {
         <motion.button
           type="submit"
           className="send-btn"
-          disabled={!message.trim()}
-          whileHover={{ scale: message.trim() ? 1.05 : 1 }}
-          whileTap={{ scale: message.trim() ? 0.95 : 1 }}
+          disabled={(!message.trim() && !selectedFile) || uploading}
+          whileHover={{ scale: (message.trim() || selectedFile) && !uploading ? 1.05 : 1 }}
+          whileTap={{ scale: (message.trim() || selectedFile) && !uploading ? 0.95 : 1 }}
         >
-          <FiSend size={20} />
+          {uploading ? (
+            <div className="spinner" style={{ width: '20px', height: '20px' }}></div>
+          ) : (
+            <FiSend size={20} />
+          )}
         </motion.button>
       </form>
     </div>

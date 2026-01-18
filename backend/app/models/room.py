@@ -1,26 +1,38 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Table, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, Boolean
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from datetime import datetime
 from ..database import Base
 
-# Association table for room members
 room_members = Table(
     'room_members',
     Base.metadata,
-    Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE')),
-    Column('room_id', Integer, ForeignKey('rooms.id', ondelete='CASCADE'))
+    Column('user_id', Integer, ForeignKey('users.id')),
+    Column('room_id', Integer, ForeignKey('rooms.id'))
+)
+
+# NEW: Room invites table
+room_invites = Table(
+    'room_invites',
+    Base.metadata,
+    Column('id', Integer, primary_key=True, index=True),
+    Column('room_id', Integer, ForeignKey('rooms.id')),
+    Column('user_id', Integer, ForeignKey('users.id')),
+    Column('invited_by', Integer, ForeignKey('users.id')),
+    Column('status', String, default='pending'),  # pending, accepted, declined
+    Column('created_at', DateTime, default=datetime.utcnow)
 )
 
 class Room(Base):
     __tablename__ = "rooms"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), unique=True, index=True, nullable=False)
-    description = Column(Text)
-    room_type = Column(String(20), default="public")  # public, private, direct
-    icon = Column(String(10), default="💬")
+    name = Column(String, index=True)
+    description = Column(String, nullable=True)
+    room_type = Column(String, default="public")  # public or private
+    icon = Column(String, default="💬")
     created_by = Column(Integer, ForeignKey('users.id'))
-    created_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
     
+    members = relationship("User", secondary=room_members, back_populates="rooms")
     messages = relationship("Message", back_populates="room", cascade="all, delete-orphan")
-    members = relationship("User", secondary=room_members, backref="rooms")
+    creator = relationship("User", foreign_keys=[created_by])
