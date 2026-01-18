@@ -1,2 +1,10 @@
-# Charla_V03
-This is a chatting App with modern features
+# ChatFlow Backend API
+
+FastAPI-based real-time chat application backend.
+
+## Setup
+
+1. Create virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
