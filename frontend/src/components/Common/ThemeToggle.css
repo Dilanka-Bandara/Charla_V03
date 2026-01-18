@@ -1,0 +1,27 @@
+.theme-toggle {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.theme-toggle:hover {
+  background: var(--surface-hover);
+  transform: scale(1.05);
+}
+
+.theme-toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all var(--transition-base);
+}
+
+.theme-toggle-icon.active {
+  color: var(--primary);
+  transform: rotate(360deg);
+}
