@@ -9,6 +9,8 @@ import RoomList from './RoomList';
 import UserList from './UserList';
 import CreateRoomModal from './CreateRoomModal';
 import './Sidebar.css';
+import RoomInvites from './RoomInvites';
+
 
 const Sidebar = ({ currentRoom, onRoomChange }) => {
   const { user, logout } = useAuth();
@@ -93,27 +95,28 @@ const Sidebar = ({ currentRoom, onRoomChange }) => {
       </div>
 
       <div className="sidebar-content">
-        {activeTab === 'rooms' ? (
-          <>
-            <motion.button
-              className="create-room-btn"
-              onClick={() => setShowCreateRoom(true)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <FiPlus size={20} />
-              Create Room
-            </motion.button>
-            <RoomList
-              rooms={filteredRooms}
-              currentRoom={currentRoom}
-              onRoomSelect={onRoomChange}
-            />
-          </>
-        ) : (
-          <UserList />
-        )}
-      </div>
+  {activeTab === 'rooms' ? (
+    <>
+      <RoomInvites onInviteAccepted={loadRooms} />
+      <motion.button
+        className="create-room-btn"
+        onClick={() => setShowCreateRoom(true)}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
+        <FiPlus size={20} />
+        Create Room
+      </motion.button>
+      <RoomList
+        rooms={filteredRooms}
+        currentRoom={currentRoom}
+        onRoomSelect={onRoomChange}
+      />
+    </>
+  ) : (
+    <UserList />
+  )}
+</div>
 
       {showCreateRoom && (
         <CreateRoomModal
