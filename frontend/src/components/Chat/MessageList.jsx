@@ -1,6 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { formatDistanceToNow } from 'date-fns';
+import { AnimatePresence } from 'framer-motion';
 import MessageItem from './MessageItem';
 import './MessageList.css';
 

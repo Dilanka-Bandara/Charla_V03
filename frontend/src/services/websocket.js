@@ -1,107 +1,135 @@
 class WebSocketService {
   constructor() {
     this.ws = null;
-    this.listeners = {};
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 3000;
+    this.eventHandlers = new Map();
+    this.isConnecting = false;
   }
 
   connect(userId) {
+    if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
+      return Promise.resolve();
+    }
+
+    this.isConnecting = true;
     const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8000';
-    this.ws = new WebSocket(`${WS_URL}/ws/${userId}`);
+    
+    return new Promise((resolve, reject) => {
+      try {
+        this.ws = new WebSocket(`${WS_URL}/ws/${userId}`);
 
-    this.ws.onopen = () => {
-      console.log('✅ WebSocket Connected');
-      this.reconnectAttempts = 0;
-      this.emit('connected');
-    };
+        this.ws.onopen = () => {
+          console.log('WebSocket connected');
+          this.reconnectAttempts = 0;
+          this.isConnecting = false;
+          resolve();
+        };
 
-    this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log('📩 Received:', data);
-      this.emit(data.type, data);
-    };
+        this.ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            this.handleMessage(data);
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error);
+          }
+        };
 
-    this.ws.onerror = (error) => {
-      console.error('❌ WebSocket Error:', error);
-      this.emit('error', error);
-    };
+        this.ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          this.isConnecting = false;
+        };
 
-    this.ws.onclose = () => {
-      console.log('🔌 WebSocket Disconnected');
-      this.emit('disconnected');
-      this.attemptReconnect(userId);
-    };
+        this.ws.onclose = () => {
+          console.log('WebSocket disconnected');
+          this.isConnecting = false;
+          this.handleReconnect(userId);
+        };
+      } catch (error) {
+        console.error('WebSocket connection error:', error);
+        this.isConnecting = false;
+        reject(error);
+      }
+    });
   }
 
-  attemptReconnect(userId) {
+  handleReconnect(userId) {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`🔄 Reconnecting... Attempt ${this.reconnectAttempts}`);
+      console.log(`Reconnecting... Attempt ${this.reconnectAttempts}`);
       setTimeout(() => {
         this.connect(userId);
       }, this.reconnectDelay);
+    } else {
+      console.error('Max reconnection attempts reached');
     }
   }
 
-  send(data) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
+  handleMessage(data) {
+    const handlers = this.eventHandlers.get(data.type);
+    if (handlers) {
+      handlers.forEach(handler => handler(data));
+    }
+  }
+
+  // Subscribe to events
+  on(eventType, callback) {
+    if (!this.eventHandlers.has(eventType)) {
+      this.eventHandlers.set(eventType, new Set());
+    }
+    this.eventHandlers.get(eventType).add(callback);
+
+    // Return unsubscribe function
+    return () => {
+      const handlers = this.eventHandlers.get(eventType);
+      if (handlers) {
+        handlers.delete(callback);
+      }
+    };
+  }
+
+  // Alias for 'on'
+  subscribeToEvent(eventType, callback) {
+    return this.on(eventType, callback);
+  }
+
+  sendMessage(message) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
     } else {
-      console.warn('⚠️ WebSocket not connected');
+      console.error('WebSocket is not connected');
     }
   }
 
   joinRoom(roomId) {
-    this.send({ type: 'join_room', room_id: roomId });
-  }
-
-  leaveRoom(roomId) {
-    this.send({ type: 'leave_room', room_id: roomId });
-  }
-
-  sendMessage(roomId, message) {
-    this.send({ type: 'new_message', room_id: roomId, message });
+    this.sendMessage({
+      type: 'join_room',
+      room_id: roomId
+    });
   }
 
   sendTyping(roomId, isTyping) {
-    this.send({ type: 'typing', room_id: roomId, is_typing: isTyping });
-  }
-
-  sendReaction(roomId, messageId, reaction) {
-    this.send({ type: 'message_reaction', room_id: roomId, message_id: messageId, reaction });
-  }
-
-  markAsRead(roomId, messageId) {
-    this.send({ type: 'read_receipt', room_id: roomId, message_id: messageId });
-  }
-
-  on(event, callback) {
-    if (!this.listeners[event]) {
-      this.listeners[event] = [];
-    }
-    this.listeners[event].push(callback);
-  }
-
-  off(event, callback) {
-    if (this.listeners[event]) {
-      this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
-    }
-  }
-
-  emit(event, data) {
-    if (this.listeners[event]) {
-      this.listeners[event].forEach(callback => callback(data));
-    }
+    this.sendMessage({
+      type: 'typing',
+      room_id: roomId,
+      is_typing: isTyping
+    });
   }
 
   disconnect() {
     if (this.ws) {
+      this.reconnectAttempts = this.maxReconnectAttempts; // Prevent reconnection
       this.ws.close();
       this.ws = null;
     }
   }
+
+  isConnected() {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
 }
 
-export default new WebSocketService();
+// Create and export a single instance
+const websocketService = new WebSocketService();
+export default websocketService;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiPlus, FiLogOut, FiSettings, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiLogOut, FiSearch } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRooms } from '../../services/api';
 import Avatar from '../Common/Avatar';
@@ -47,7 +47,6 @@ const Sidebar = ({ currentRoom, onRoomChange }) => {
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Sidebar Header */}
       <div className="sidebar-header">
         <div className="sidebar-user">
           <Avatar user={user} size="md" />
@@ -68,7 +67,6 @@ const Sidebar = ({ currentRoom, onRoomChange }) => {
         </div>
       </div>
 
-      {/* Search Bar */}
       <div className="sidebar-search">
         <FiSearch size={18} />
         <input
@@ -79,7 +77,6 @@ const Sidebar = ({ currentRoom, onRoomChange }) => {
         />
       </div>
 
-      {/* Tabs */}
       <div className="sidebar-tabs">
         <button
           className={`tab ${activeTab === 'rooms' ? 'active' : ''}`}
@@ -95,7 +92,6 @@ const Sidebar = ({ currentRoom, onRoomChange }) => {
         </button>
       </div>
 
-      {/* Content */}
       <div className="sidebar-content">
         {activeTab === 'rooms' ? (
           <>
@@ -119,7 +115,6 @@ const Sidebar = ({ currentRoom, onRoomChange }) => {
         )}
       </div>
 
-      {/* Create Room Modal */}
       {showCreateRoom && (
         <CreateRoomModal
           onClose={() => setShowCreateRoom(false)}
