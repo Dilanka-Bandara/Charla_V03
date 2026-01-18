@@ -27,6 +27,10 @@ class Message(Base):
     author = relationship("User", back_populates="messages")
     room = relationship("Room", back_populates="messages")
     reactions = relationship("Reaction", back_populates="message", cascade="all, delete-orphan")
+    # Add these columns to the Message class
+    file_url = Column(String, nullable=True)
+    file_name = Column(String, nullable=True)
+
 
 class Reaction(Base):
     __tablename__ = "reactions"

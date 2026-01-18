@@ -16,10 +16,11 @@ const ChatWindow = ({ room, onToggleSidebar }) => {
   const { subscribeToEvent, joinRoom: wsJoinRoom } = useWebSocket();
 
   const loadMessages = useCallback(async () => {
+    if (!room?.id) return;
     setLoading(true);
     try {
-      const data = await getRoomMessages(room.id);
-      setMessages(data);
+      const response = await getRoomMessages(room.id);
+      setMessages(response.data);
     } catch (error) {
       console.error('Failed to load messages:', error);
     } finally {
@@ -37,7 +38,12 @@ const ChatWindow = ({ room, onToggleSidebar }) => {
 
   const handleNewMessage = useCallback((data) => {
     if (data.message && data.room_id === room?.id) {
-      setMessages(prev => [...prev, data.message]);
+      setMessages(prev => {
+        // Avoid duplicates
+        const exists = prev.some(msg => msg.id === data.message.id);
+        if (exists) return prev;
+        return [...prev, data.message];
+      });
     }
   }, [room?.id]);
 
@@ -48,28 +54,36 @@ const ChatWindow = ({ room, onToggleSidebar }) => {
   }, [room?.id]);
 
   const handleReaction = useCallback((data) => {
-    if (data.message_id) {
+    if (data.message_id && data.room_id === room?.id) {
       setMessages(prev =>
         prev.map(msg =>
           msg.id === data.message_id
-            ? { ...msg, reactions: msg.reactions || [] }
+            ? { ...msg, reactions: data.reaction ? [...(msg.reactions || []), data.reaction] : msg.reactions }
             : msg
         )
       );
     }
-  }, []);
+  }, [room?.id]);
+
+  const handleMessageDeleted = useCallback((data) => {
+    if (data.message_id && data.room_id === room?.id) {
+      setMessages(prev => prev.filter(msg => msg.id !== data.message_id));
+    }
+  }, [room?.id]);
 
   useEffect(() => {
     const unsubscribeMessage = subscribeToEvent('new_message', handleNewMessage);
     const unsubscribeTyping = subscribeToEvent('typing', handleTyping);
     const unsubscribeReaction = subscribeToEvent('message_reaction', handleReaction);
+    const unsubscribeDeleted = subscribeToEvent('message_deleted', handleMessageDeleted);
 
     return () => {
       unsubscribeMessage();
       unsubscribeTyping();
       unsubscribeReaction();
+      unsubscribeDeleted();
     };
-  }, [subscribeToEvent, handleNewMessage, handleTyping, handleReaction]);
+  }, [subscribeToEvent, handleNewMessage, handleTyping, handleReaction, handleMessageDeleted]);
 
   useEffect(() => {
     scrollToBottom();
@@ -113,6 +127,7 @@ const ChatWindow = ({ room, onToggleSidebar }) => {
             <p className="room-meta">
               <FiUsers size={14} />
               {room.member_count} members
+              {room.room_type === 'private' && ' • Private'}
             </p>
           </div>
         </div>
