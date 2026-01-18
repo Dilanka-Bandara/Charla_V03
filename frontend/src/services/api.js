@@ -92,3 +92,24 @@ export const addReaction = (messageId, emoji) =>
   api.post(`/api/messages/${messageId}/reactions`, { emoji });
 
 export default api;
+
+// Add response interceptor with better error logging
+api.interceptors.response.use(
+  (response) => {
+    console.log('API Response:', response.config.url, response.status);
+    return response;
+  },
+  (error) => {
+    console.error('API Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      message: error.response?.data?.detail || error.message
+    });
+    
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);

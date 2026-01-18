@@ -17,19 +17,24 @@ const CreateRoomModal = ({ onClose, onRoomCreated }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    try {
-      const newRoom = await createRoom(formData);
-      toast.success('Room created successfully! 🎉');
-      onRoomCreated(newRoom);
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create room');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  e.preventDefault();
+  setIsLoading(true);
+  
+  try {
+    console.log('Creating room with data:', formData);
+    const response = await createRoom(formData);
+    console.log('Room created successfully:', response.data);
+    toast.success('Room created successfully! 🎉');
+    onRoomCreated(response.data);
+  } catch (error) {
+    console.error('Failed to create room:', error);
+    const errorMsg = error.response?.data?.detail || 'Failed to create room';
+    toast.error(errorMsg);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <AnimatePresence>
@@ -130,5 +135,6 @@ const CreateRoomModal = ({ onClose, onRoomCreated }) => {
     </AnimatePresence>
   );
 };
+
 
 export default CreateRoomModal;

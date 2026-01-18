@@ -1,90 +1,78 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
+from ..models.room import Room, room_members, room_invites
 from ..models.user import User
-from ..models.room import Room
+from ..schemas.room import RoomCreate, RoomResponse, RoomInviteCreate, RoomInviteResponse
 from ..core.security import get_current_user
-from ..models.room import room_invites
-from pydantic import BaseModel
-
 
 router = APIRouter()
 
-class RoomCreate(BaseModel):
-    name: str
-    description: str = ""
-    icon: str = "💬"
-    room_type: str = "public"
-
-class RoomResponse(BaseModel):
-    id: int
-    name: str
-    description: str
-    icon: str
-    room_type: str
-    created_by: int
-    member_count: int
-    
-    class Config:
-        from_attributes = True
-
-@router.get("/", response_model=List[RoomResponse])
-async def get_rooms(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    rooms = db.query(Room).all()
-    return [
-        {
-            **room.__dict__,
-            "member_count": len(room.members)
-        }
-        for room in rooms
-    ]
-
-@router.post("/", response_model=RoomResponse)
-async def create_room(
-    room_data: RoomCreate,
+@router.post("/rooms", response_model=RoomResponse)
+def create_room(
+    room: RoomCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Check if room name exists
-    if db.query(Room).filter(Room.name == room_data.name).first():
-        raise HTTPException(status_code=400, detail="Room name already exists")
-    
     db_room = Room(
-        name=room_data.name,
-        description=room_data.description,
-        icon=room_data.icon,
-        room_type=room_data.room_type,
+        name=room.name,
+        description=room.description,
+        room_type=room.room_type,
+        icon=room.icon,
         created_by=current_user.id
     )
-    db_room.members.append(current_user)
     db.add(db_room)
     db.commit()
     db.refresh(db_room)
     
+    # Add creator as first member
+    db_room.members.append(current_user)
+    db.commit()
+    
     return {
-        **db_room.__dict__,
+        "id": db_room.id,
+        "name": db_room.name,
+        "description": db_room.description,
+        "room_type": db_room.room_type,
+        "icon": db_room.icon,
+        "created_by": db_room.created_by,
+        "created_at": db_room.created_at,
         "member_count": len(db_room.members)
     }
 
-@router.post("/{room_id}/join")
-async def join_room(
-    room_id: int,
+@router.get("/rooms", response_model=List[RoomResponse])
+def get_rooms(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    room = db.query(Room).filter(Room.id == room_id).first()
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
+    # Get all public rooms and private rooms user is a member of
+    public_rooms = db.query(Room).filter(Room.room_type == "public").all()
     
-    if current_user not in room.members:
-        room.members.append(current_user)
-        db.commit()
+    # Get user's private rooms
+    user = db.query(User).filter(User.id == current_user.id).first()
+    private_rooms = [room for room in user.rooms if room.room_type == "private"]
     
-    return {"message": "Joined room successfully"}
+    all_rooms = public_rooms + private_rooms
+    
+    result = []
+    for room in all_rooms:
+        result.append({
+            "id": room.id,
+            "name": room.name,
+            "description": room.description,
+            "room_type": room.room_type,
+            "icon": room.icon,
+            "created_by": room.created_by,
+            "created_at": room.created_at,
+            "member_count": len(room.members)
+        })
+    
+    return result
 
-@router.post("/{room_id}/leave")
-async def leave_room(
+@router.get("/rooms/{room_id}", response_model=RoomResponse)
+def get_room(
     room_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -93,13 +81,39 @@ async def leave_room(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     
+    return {
+        "id": room.id,
+        "name": room.name,
+        "description": room.description,
+        "room_type": room.room_type,
+        "icon": room.icon,
+        "created_by": room.created_by,
+        "created_at": room.created_at,
+        "member_count": len(room.members)
+    }
+
+@router.post("/rooms/{room_id}/join")
+def join_room(
+    room_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Check if room is private
+    if room.room_type == "private":
+        raise HTTPException(status_code=403, detail="Cannot join private room without invite")
+    
+    # Check if already a member
     if current_user in room.members:
-        room.members.remove(current_user)
-        db.commit()
+        return {"message": "Already a member"}
     
-    return {"message": "Left room successfully"}
-
-# Add these new endpoints
+    room.members.append(current_user)
+    db.commit()
+    
+    return {"message": f"Joined {room.name}"}
 
 @router.post("/rooms/{room_id}/invite", response_model=dict)
 def invite_to_room(
@@ -121,17 +135,18 @@ def invite_to_room(
     if room.room_type != "private":
         raise HTTPException(status_code=400, detail="Can only invite to private rooms")
     
-    # Check if user is already a member
+    # Check if user exists
     invited_user = db.query(User).filter(User.id == invite.user_id).first()
     if not invited_user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Check if user is already a member
     if invited_user in room.members:
         raise HTTPException(status_code=400, detail="User is already a member")
     
     # Check if invite already exists
     existing_invite = db.execute(
-        room_invites.select().where(
+        select(room_invites).where(
             (room_invites.c.room_id == room_id) &
             (room_invites.c.user_id == invite.user_id) &
             (room_invites.c.status == 'pending')
@@ -161,7 +176,7 @@ def get_my_invites(
 ):
     """Get all pending invites for current user"""
     invites = db.execute(
-        room_invites.select().where(
+        select(room_invites).where(
             (room_invites.c.user_id == current_user.id) &
             (room_invites.c.status == 'pending')
         )
@@ -192,7 +207,7 @@ def accept_invite(
 ):
     """Accept a room invite"""
     invite = db.execute(
-        room_invites.select().where(room_invites.c.id == invite_id)
+        select(room_invites).where(room_invites.c.id == invite_id)
     ).first()
     
     if not invite:
@@ -230,7 +245,7 @@ def decline_invite(
 ):
     """Decline a room invite"""
     invite = db.execute(
-        room_invites.select().where(room_invites.c.id == invite_id)
+        select(room_invites).where(room_invites.c.id == invite_id)
     ).first()
     
     if not invite:

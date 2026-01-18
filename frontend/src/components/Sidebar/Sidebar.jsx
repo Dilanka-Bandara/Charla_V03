@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiPlus, FiLogOut, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiLogOut, FiSearch, FiAlertCircle } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRooms } from '../../services/api';
 import Avatar from '../Common/Avatar';
@@ -8,9 +8,9 @@ import ThemeToggle from '../Common/ThemeToggle';
 import RoomList from './RoomList';
 import UserList from './UserList';
 import CreateRoomModal from './CreateRoomModal';
-import './Sidebar.css';
 import RoomInvites from './RoomInvites';
-
+import toast from 'react-hot-toast';
+import './Sidebar.css';
 
 const Sidebar = ({ currentRoom, onRoomChange }) => {
   const { user, logout } = useAuth();
@@ -18,24 +18,36 @@ const Sidebar = ({ currentRoom, onRoomChange }) => {
   const [activeTab, setActiveTab] = useState('rooms');
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadRooms();
   }, []);
 
   const loadRooms = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const data = await getRooms();
-      setRooms(data);
+      console.log('Loading rooms...');
+      const response = await getRooms();
+      console.log('Rooms loaded:', response.data);
+      setRooms(response.data);
     } catch (error) {
       console.error('Failed to load rooms:', error);
+      setError('Failed to load rooms. Please refresh.');
+      toast.error('Failed to load rooms');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleRoomCreated = (newRoom) => {
+    console.log('New room created:', newRoom);
     setRooms([...rooms, newRoom]);
     setShowCreateRoom(false);
     onRoomChange(newRoom);
+    toast.success(`Room "${newRoom.name}" created!`);
   };
 
   const filteredRooms = rooms.filter(room =>
@@ -84,7 +96,7 @@ const Sidebar = ({ currentRoom, onRoomChange }) => {
           className={`tab ${activeTab === 'rooms' ? 'active' : ''}`}
           onClick={() => setActiveTab('rooms')}
         >
-          Rooms
+          Rooms ({rooms.length})
         </button>
         <button
           className={`tab ${activeTab === 'users' ? 'active' : ''}`}
@@ -95,28 +107,45 @@ const Sidebar = ({ currentRoom, onRoomChange }) => {
       </div>
 
       <div className="sidebar-content">
-  {activeTab === 'rooms' ? (
-    <>
-      <RoomInvites onInviteAccepted={loadRooms} />
-      <motion.button
-        className="create-room-btn"
-        onClick={() => setShowCreateRoom(true)}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        <FiPlus size={20} />
-        Create Room
-      </motion.button>
-      <RoomList
-        rooms={filteredRooms}
-        currentRoom={currentRoom}
-        onRoomSelect={onRoomChange}
-      />
-    </>
-  ) : (
-    <UserList />
-  )}
-</div>
+        {activeTab === 'rooms' ? (
+          <>
+            <RoomInvites onInviteAccepted={loadRooms} />
+            
+            <motion.button
+              className="create-room-btn"
+              onClick={() => setShowCreateRoom(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <FiPlus size={20} />
+              Create Room
+            </motion.button>
+
+            {loading ? (
+              <div className="loading-state">
+                <div className="spinner"></div>
+                <p>Loading rooms...</p>
+              </div>
+            ) : error ? (
+              <div className="error-state">
+                <FiAlertCircle size={32} />
+                <p>{error}</p>
+                <button onClick={loadRooms} className="retry-btn">
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <RoomList
+                rooms={filteredRooms}
+                currentRoom={currentRoom}
+                onRoomSelect={onRoomChange}
+              />
+            )}
+          </>
+        ) : (
+          <UserList />
+        )}
+      </div>
 
       {showCreateRoom && (
         <CreateRoomModal
