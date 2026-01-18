@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { FiMenu, FiUsers, FiMoreVertical } from 'react-icons/fi';
 import { getRoomMessages, joinRoom } from '../../services/api';
@@ -15,32 +15,7 @@ const ChatWindow = ({ room, onToggleSidebar }) => {
   const messagesEndRef = useRef(null);
   const { subscribeToEvent, joinRoom: wsJoinRoom } = useWebSocket();
 
-  useEffect(() => {
-    if (room) {
-      loadMessages();
-      wsJoinRoom(room.id);
-      joinRoom(room.id);
-    }
-  }, [room]);
-
-  useEffect(() => {
-    // Subscribe to WebSocket events
-    const unsubscribeMessage = subscribeToEvent('new_message', handleNewMessage);
-    const unsubscribeTyping = subscribeToEvent('typing', handleTyping);
-    const unsubscribeReaction = subscribeToEvent('message_reaction', handleReaction);
-
-    return () => {
-      unsubscribeMessage();
-      unsubscribeTyping();
-      unsubscribeReaction();
-    };
-  }, [subscribeToEvent]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getRoomMessages(room.id);
@@ -50,34 +25,55 @@ const ChatWindow = ({ room, onToggleSidebar }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [room?.id]);
 
-  const handleNewMessage = (data) => {
+  useEffect(() => {
+    if (room) {
+      loadMessages();
+      wsJoinRoom(room.id);
+      joinRoom(room.id);
+    }
+  }, [room, loadMessages, wsJoinRoom]);
+
+  const handleNewMessage = useCallback((data) => {
     if (data.message && data.room_id === room?.id) {
       setMessages(prev => [...prev, data.message]);
     }
-  };
+  }, [room?.id]);
 
-  const handleTyping = (data) => {
+  const handleTyping = useCallback((data) => {
     if (data.room_id === room?.id) {
       setTypingUsers(data.users || []);
     }
-  };
+  }, [room?.id]);
 
-  const handleReaction = (data) => {
+  const handleReaction = useCallback((data) => {
     if (data.message_id) {
       setMessages(prev =>
         prev.map(msg =>
           msg.id === data.message_id
-            ? {
-                ...msg,
-                reactions: msg.reactions || []
-              }
+            ? { ...msg, reactions: msg.reactions || [] }
             : msg
         )
       );
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribeMessage = subscribeToEvent('new_message', handleNewMessage);
+    const unsubscribeTyping = subscribeToEvent('typing', handleTyping);
+    const unsubscribeReaction = subscribeToEvent('message_reaction', handleReaction);
+
+    return () => {
+      unsubscribeMessage();
+      unsubscribeTyping();
+      unsubscribeReaction();
+    };
+  }, [subscribeToEvent, handleNewMessage, handleTyping, handleReaction]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -101,7 +97,6 @@ const ChatWindow = ({ room, onToggleSidebar }) => {
 
   return (
     <div className="chat-window">
-      {/* Chat Header */}
       <motion.div
         className="chat-header glass-card"
         initial={{ y: -20, opacity: 0 }}
@@ -127,7 +122,6 @@ const ChatWindow = ({ room, onToggleSidebar }) => {
         </button>
       </motion.div>
 
-      {/* Messages Area */}
       <div className="messages-container">
         {loading ? (
           <div className="loading-messages">
@@ -142,12 +136,10 @@ const ChatWindow = ({ room, onToggleSidebar }) => {
         )}
       </div>
 
-      {/* Typing Indicator */}
       {typingUsers.length > 0 && (
         <TypingIndicator users={typingUsers} />
       )}
 
-      {/* Message Input */}
       <MessageInput roomId={room.id} />
     </div>
   );

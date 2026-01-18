@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FiMoreVertical, FiTrash2, FiEdit2 } from 'react-icons/fi';
+import { FiTrash2 } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
 import { deleteMessage, addReaction } from '../../services/api';
@@ -85,7 +85,6 @@ const MessageItem = ({ message, index }) => {
           )}
         </div>
 
-        {/* Reactions */}
         {Object.keys(reactionCounts).length > 0 && (
           <div className="message-reactions">
             {Object.entries(reactionCounts).map(([emoji, count]) => (
@@ -102,7 +101,6 @@ const MessageItem = ({ message, index }) => {
           </div>
         )}
 
-        {/* Action Buttons */}
         {showActions && (
           <motion.div
             className="message-actions"
@@ -116,16 +114,13 @@ const MessageItem = ({ message, index }) => {
               😊
             </button>
             {isOwnMessage && (
-              <>
-                <button className="action-btn" onClick={handleDelete}>
-                  <FiTrash2 size={14} />
-                </button>
-              </>
+              <button className="action-btn" onClick={handleDelete}>
+                <FiTrash2 size={14} />
+              </button>
             )}
           </motion.div>
         )}
 
-        {/* Reaction Picker */}
         {showReactions && (
           <motion.div
             className="reaction-picker"

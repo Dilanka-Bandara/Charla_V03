@@ -27,18 +27,15 @@ const MessageInput = ({ roomId }) => {
     const value = e.target.value;
     setMessage(value);
 
-    // Handle typing indicator
     if (value && !isTyping) {
       setIsTyping(true);
       sendTyping(roomId, true);
     }
 
-    // Clear previous timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
 
-    // Set new timeout
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
       sendTyping(roomId, false);
@@ -51,13 +48,12 @@ const MessageInput = ({ roomId }) => {
     if (!message.trim()) return;
 
     try {
-      const newMessage = await createMessage({
+      await createMessage({
         content: message.trim(),
         room_id: roomId,
         message_type: 'text'
       });
 
-      // Clear typing indicator
       setIsTyping(false);
       sendTyping(roomId, false);
       

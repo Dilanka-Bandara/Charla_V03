@@ -1,99 +1,98 @@
 class WebSocketService {
   constructor() {
     this.ws = null;
-    this.listeners = {};
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 3000;
+    this.eventHandlers = new Map();
   }
 
   connect(userId) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      return;
+    }
+
     const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8000';
     this.ws = new WebSocket(`${WS_URL}/ws/${userId}`);
 
     this.ws.onopen = () => {
-      console.log('✅ WebSocket Connected');
+      console.log('WebSocket connected');
       this.reconnectAttempts = 0;
-      this.emit('connected');
     };
 
     this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log('📩 Received:', data);
-      this.emit(data.type, data);
+      try {
+        const data = JSON.parse(event.data);
+        this.handleMessage(data);
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error);
+      }
     };
 
     this.ws.onerror = (error) => {
-      console.error('❌ WebSocket Error:', error);
-      this.emit('error', error);
+      console.error('WebSocket error:', error);
     };
 
     this.ws.onclose = () => {
-      console.log('🔌 WebSocket Disconnected');
-      this.emit('disconnected');
-      this.attemptReconnect(userId);
+      console.log('WebSocket disconnected');
+      this.handleReconnect(userId);
     };
   }
 
-  attemptReconnect(userId) {
+  handleReconnect(userId) {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`🔄 Reconnecting... Attempt ${this.reconnectAttempts}`);
+      console.log(`Reconnecting... Attempt ${this.reconnectAttempts}`);
       setTimeout(() => {
         this.connect(userId);
       }, this.reconnectDelay);
+    } else {
+      console.error('Max reconnection attempts reached');
     }
   }
 
-  send(data) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
+  handleMessage(data) {
+    const handlers = this.eventHandlers.get(data.type);
+    if (handlers) {
+      handlers.forEach(handler => handler(data));
+    }
+  }
+
+  subscribeToEvent(eventType, callback) {
+    if (!this.eventHandlers.has(eventType)) {
+      this.eventHandlers.set(eventType, new Set());
+    }
+    this.eventHandlers.get(eventType).add(callback);
+
+    return () => {
+      const handlers = this.eventHandlers.get(eventType);
+      if (handlers) {
+        handlers.delete(callback);
+      }
+    };
+  }
+
+  sendMessage(message) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
     } else {
-      console.warn('⚠️ WebSocket not connected');
+      console.error('WebSocket is not connected');
     }
   }
 
   joinRoom(roomId) {
-    this.send({ type: 'join_room', room_id: roomId });
-  }
-
-  leaveRoom(roomId) {
-    this.send({ type: 'leave_room', room_id: roomId });
-  }
-
-  sendMessage(roomId, message) {
-    this.send({ type: 'new_message', room_id: roomId, message });
+    this.sendMessage({
+      type: 'join_room',
+      room_id: roomId
+    });
   }
 
   sendTyping(roomId, isTyping) {
-    this.send({ type: 'typing', room_id: roomId, is_typing: isTyping });
-  }
-
-  sendReaction(roomId, messageId, reaction) {
-    this.send({ type: 'message_reaction', room_id: roomId, message_id: messageId, reaction });
-  }
-
-  markAsRead(roomId, messageId) {
-    this.send({ type: 'read_receipt', room_id: roomId, message_id: messageId });
-  }
-
-  on(event, callback) {
-    if (!this.listeners[event]) {
-      this.listeners[event] = [];
-    }
-    this.listeners[event].push(callback);
-  }
-
-  off(event, callback) {
-    if (this.listeners[event]) {
-      this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
-    }
-  }
-
-  emit(event, data) {
-    if (this.listeners[event]) {
-      this.listeners[event].forEach(callback => callback(data));
-    }
+    this.sendMessage({
+      type: 'typing',
+      room_id: roomId,
+      is_typing: isTyping
+    });
   }
 
   disconnect() {
@@ -104,4 +103,5 @@ class WebSocketService {
   }
 }
 
-export default new WebSocketService();
+const websocketService = new WebSocketService();
+export default websocketService;
