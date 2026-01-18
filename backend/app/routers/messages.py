@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
@@ -8,11 +8,9 @@ from ..schemas.message import MessageCreate, MessageResponse, ReactionCreate, Re
 from ..core.security import get_current_user
 from ..core.websocket_manager import manager
 from datetime import datetime
-from fastapi import File, UploadFile
 import os
 import uuid
 from pathlib import Path
-
 
 router = APIRouter()
 
@@ -74,6 +72,8 @@ def get_room_messages(
             "timestamp": msg.timestamp,
             "username": user.username if user else "Unknown",
             "avatar_color": user.avatar_color if user else "#6366f1",
+            "file_url": msg.file_url if hasattr(msg, 'file_url') else None,
+            "file_name": msg.file_name if hasattr(msg, 'file_name') else None,
             "reactions": [
                 {
                     "id": r.id,
@@ -159,7 +159,7 @@ async def add_reaction(
     
     return reaction_data or {"message": "Reaction removed"}
 
-# Add this new endpoint
+# File upload endpoint
 @router.post("/messages/upload")
 async def upload_file(
     file: UploadFile = File(...),
@@ -169,7 +169,6 @@ async def upload_file(
 ):
     """Upload a file and create a message"""
     # Validate file size (10MB max)
-    file_size = 0
     file.file.seek(0, 2)
     file_size = file.file.tell()
     file.file.seek(0)
