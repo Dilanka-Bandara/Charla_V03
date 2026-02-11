@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { FiMenu, FiUsers, FiMoreVertical } from 'react-icons/fi';
-import { getRoomMessages, joinRoom } from '../../services/api';
+import { getRoomMessages, joinRoom as joinRoomApi } from '../../services/api'; // Renamed to avoid confusion
 import { useWebSocket } from '../../hooks/useWebSocket';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
@@ -10,13 +10,16 @@ import './ChatWindow.css';
 
 const ChatWindow = ({ room, onToggleSidebar }) => {
   const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Changed default to false
   const [typingUsers, setTypingUsers] = useState([]);
   const messagesEndRef = useRef(null);
-  const { subscribeToEvent, joinRoom: wsJoinRoom } = useWebSocket();
+  
+  // Destructure isConnected to trigger re-joins
+  const { subscribeToEvent, joinRoom: wsJoinRoom, isConnected } = useWebSocket();
 
   const loadMessages = useCallback(async () => {
     if (!room?.id) return;
+    
     setLoading(true);
     try {
       const response = await getRoomMessages(room.id);
@@ -28,22 +31,34 @@ const ChatWindow = ({ room, onToggleSidebar }) => {
     }
   }, [room?.id]);
 
+  // 1. Handle Room Changes & Initial Load
   useEffect(() => {
-    if (room) {
+    if (room?.id) {
       loadMessages();
-      wsJoinRoom(room.id);
-      joinRoom(room.id);
+      // Call API to ensure user is member in DB
+      joinRoomApi(room.id).catch(console.error);
     }
-  }, [room, loadMessages, wsJoinRoom]);
+  }, [room?.id, loadMessages]);
 
+  // 2. Handle WebSocket Room Joining (Runs on room change AND reconnection)
+  useEffect(() => {
+    if (room?.id && isConnected) {
+      console.log(`Joining WS room: ${room.id}`);
+      wsJoinRoom(room.id);
+    }
+  }, [room?.id, isConnected, wsJoinRoom]);
+
+  // 3. Handle Incoming WebSocket Events
   const handleNewMessage = useCallback((data) => {
+    // Strict check: Only add if message belongs to THIS room
     if (data.message && data.room_id === room?.id) {
       setMessages(prev => {
-        // Avoid duplicates
         const exists = prev.some(msg => msg.id === data.message.id);
         if (exists) return prev;
         return [...prev, data.message];
       });
+      // Scroll to bottom on new message
+      setTimeout(scrollToBottom, 100); 
     }
   }, [room?.id]);
 

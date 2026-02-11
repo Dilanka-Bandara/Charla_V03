@@ -1,7 +1,10 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone # Import timezone
 from ..database import Base
+
+def get_utc_now():
+    return datetime.now(timezone.utc)
 
 class Message(Base):
     __tablename__ = "messages"
@@ -10,10 +13,11 @@ class Message(Base):
     content = Column(Text)
     user_id = Column(Integer, ForeignKey("users.id"))
     room_id = Column(Integer, ForeignKey("rooms.id"))
-    message_type = Column(String, default="text")  # text, file, image
-    file_url = Column(String, nullable=True)  # NEW
-    file_name = Column(String, nullable=True)  # NEW
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    message_type = Column(String, default="text")
+    file_url = Column(String, nullable=True)
+    file_name = Column(String, nullable=True)
+    # Changed default to timezone-aware function
+    timestamp = Column(DateTime(timezone=True), default=get_utc_now, index=True)
     
     user = relationship("User", back_populates="messages")
     room = relationship("Room", back_populates="messages")
@@ -26,7 +30,8 @@ class Reaction(Base):
     emoji = Column(String)
     user_id = Column(Integer, ForeignKey("users.id"))
     message_id = Column(Integer, ForeignKey("messages.id"))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Changed default to timezone-aware function
+    created_at = Column(DateTime(timezone=True), default=get_utc_now)
     
     user = relationship("User")
     message = relationship("Message", back_populates="reactions")
