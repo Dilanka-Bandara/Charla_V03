@@ -1,12 +1,8 @@
 import axios from 'axios';
 import config from '../config';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
-
-
 const api = axios.create({
-  baseURL: config.API_URL, // Use config
+  baseURL: config.API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -39,8 +35,9 @@ api.interceptors.response.use(
 );
 
 // Auth
+// FIX 1: Removed URLSearchParams. Sending a plain object makes Axios send JSON.
 export const login = (username, password) =>
-  api.post('/api/auth/login', new URLSearchParams({ username, password }));
+  api.post('/api/auth/login', { username, password });
 
 export const register = (username, email, password, fullName) =>
   api.post('/api/auth/register', { username, email, password, full_name: fullName });
@@ -55,29 +52,26 @@ export const getRoom = (roomId) => api.get(`/api/rooms/${roomId}`);
 export const createRoom = (roomData) => api.post('/api/rooms', roomData);
 export const joinRoom = (roomId) => api.post(`/api/rooms/${roomId}/join`);
 
-// NEW: Room Invites
+// Room Invites
 export const inviteToRoom = (roomId, userId) => 
   api.post(`/api/rooms/${roomId}/invite`, { user_id: userId });
-
 export const getMyInvites = () => api.get('/api/rooms/invites');
 
 export const acceptInvite = (inviteId) => 
   api.post(`/api/rooms/invites/${inviteId}/accept`);
-
 export const declineInvite = (inviteId) => 
   api.post(`/api/rooms/invites/${inviteId}/decline`);
 
 // Messages
 export const getRoomMessages = (roomId) =>
   api.get(`/api/rooms/${roomId}/messages`);
-
 export const createMessage = (messageData) =>
   api.post('/api/messages', messageData);
 
 export const deleteMessage = (messageId) =>
   api.delete(`/api/messages/${messageId}`);
 
-// NEW: File Upload
+// File Upload
 export const uploadFile = async (file, roomId) => {
   const formData = new FormData();
   formData.append('file', file);
@@ -95,24 +89,3 @@ export const addReaction = (messageId, emoji) =>
   api.post(`/api/messages/${messageId}/reactions`, { emoji });
 
 export default api;
-
-// Add response interceptor with better error logging
-api.interceptors.response.use(
-  (response) => {
-    console.log('API Response:', response.config.url, response.status);
-    return response;
-  },
-  (error) => {
-    console.error('API Error:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      message: error.response?.data?.detail || error.message
-    });
-    
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/';
-    }
-    return Promise.reject(error);
-  }
-);

@@ -18,5 +18,11 @@ class User(Base):
     last_seen = Column(DateTime, default=func.now(), onupdate=func.now())
     created_at = Column(DateTime, default=func.now())
     
-    messages = relationship("Message", back_populates="author", cascade="all, delete-orphan")
+    # FIX 1: Changed back_populates="author" to "user" to match the Message model
+    messages = relationship("Message", back_populates="user", cascade="all, delete-orphan")
+    
     reactions = relationship("Reaction", back_populates="user", cascade="all, delete-orphan")
+    
+    # FIX 2: Added missing 'rooms' relationship (required by Room.members)
+    # We use the string "room_members" to refer to the association table defined in room.py
+    rooms = relationship("Room", secondary="room_members", back_populates="members")

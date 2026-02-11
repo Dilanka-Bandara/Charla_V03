@@ -12,19 +12,38 @@ export const useAuth = () => {
   return context;
 };
 
+// Helper to safely extract error message from backend response
+const getErrorMessage = (error) => {
+  if (error.response?.data?.detail) {
+    const detail = error.response.data.detail;
+    // If detail is an array (Pydantic validation error), extract the first message
+    if (Array.isArray(detail)) {
+      return detail[0].msg || 'Validation error';
+    }
+    // If it's a string, return it
+    return detail;
+  }
+  return 'An error occurred';
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
     const storedUser = localStorage.getItem('user');
     const storedToken = localStorage.getItem('token');
     
     if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setToken(storedToken);
+      try {
+        setUser(JSON.parse(storedUser));
+        setToken(storedToken);
+      } catch (e) {
+        console.error("Failed to parse stored user", e);
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
     }
     setIsLoading(false);
   }, []);
@@ -32,7 +51,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       const response = await loginAPI(username, password);
-      const { access_token, user: userData } = response;
+      const { access_token, user: userData } = response.data; // Ensure we access .data
       
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -43,7 +62,10 @@ export const AuthProvider = ({ children }) => {
       toast.success(`Welcome back, ${userData.username}! 👋`);
       return true;
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Login failed');
+      console.error("Login Error:", error);
+      // FIX: Use helper to get string message, preventing object rendering crash
+      const msg = getErrorMessage(error);
+      toast.error(msg);
       return false;
     }
   };
@@ -51,7 +73,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (username, email, password, fullName) => {
     try {
       const response = await registerAPI(username, email, password, fullName);
-      const { access_token, user: userData } = response;
+      const { access_token, user: userData } = response.data; // Ensure we access .data
       
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -62,7 +84,10 @@ export const AuthProvider = ({ children }) => {
       toast.success(`Account created! Welcome, ${userData.username}! 🎉`);
       return true;
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Registration failed');
+      console.error("Registration Error:", error);
+      // FIX: Use helper to get string message
+      const msg = getErrorMessage(error);
+      toast.error(msg);
       return false;
     }
   };
