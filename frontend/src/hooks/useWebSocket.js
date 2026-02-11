@@ -6,16 +6,18 @@ export const useWebSocket = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (user?.id) {
-      websocketService.connect(user.id).catch(error => {
+    // Only connect if we have a user (and implicitly a token)
+    if (user) {
+      websocketService.connect().catch(error => {
         console.error('WebSocket connection failed:', error);
       });
     }
 
     return () => {
-      // Don't disconnect on unmount, keep connection alive
+      // Optional: disconnect on unmount if desired
+      // websocketService.disconnect();
     };
-  }, [user?.id]);
+  }, [user]);
 
   const subscribeToEvent = useCallback((eventType, callback) => {
     return websocketService.on(eventType, callback);

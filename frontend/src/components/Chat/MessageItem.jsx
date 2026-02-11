@@ -54,6 +54,17 @@ const MessageItem = ({ message, index }) => {
     return /\.(jpg|jpeg|png|gif|webp)$/i.test(filename);
   };
 
+  // Helper for Timezone fix: Append 'Z' to force UTC interpretation if missing
+  const getMessageDate = (timestamp) => {
+    if (!timestamp) return new Date();
+    // If it doesn't end with Z and doesn't have offset, assume UTC
+    if (!timestamp.endsWith('Z') && !timestamp.includes('+')) {
+        return new Date(timestamp + 'Z');
+    }
+    return new Date(timestamp);
+  };
+  
+  const messageDate = getMessageDate(message.timestamp);
   const reactionCounts = getReactionCount();
 
   return (
@@ -79,7 +90,7 @@ const MessageItem = ({ message, index }) => {
               {message.username}
             </span>
             <span className="message-time">
-              {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
+              {formatDistanceToNow(messageDate, { addSuffix: true })}
             </span>
           </div>
         )}
@@ -92,6 +103,7 @@ const MessageItem = ({ message, index }) => {
                   src={`${API_URL}${message.file_url}`} 
                   alt={message.file_name}
                   className="message-image"
+                  onClick={() => window.open(`${API_URL}${message.file_url}`, '_blank')}
                 />
               ) : (
                 <div className="file-attachment">
@@ -113,7 +125,7 @@ const MessageItem = ({ message, index }) => {
           
           {isOwnMessage && (
             <span className="message-time-own">
-              {new Date(message.timestamp).toLocaleTimeString('en-US', {
+              {messageDate.toLocaleTimeString('en-US', {
                 hour: '2-digit',
                 minute: '2-digit'
               })}

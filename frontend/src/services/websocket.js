@@ -8,17 +8,25 @@ class WebSocketService {
     this.isConnecting = false;
   }
 
-  connect(userId) {
+  // Changed: No longer accepts userId, assumes token is in localStorage
+  connect() {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
       return Promise.resolve();
     }
 
+    const token = localStorage.getItem('token');
+    if (!token) {
+        console.error('Cannot connect to WebSocket: No token found');
+        return Promise.reject('No token');
+    }
+
     this.isConnecting = true;
     const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8000';
-    
+
     return new Promise((resolve, reject) => {
       try {
-        this.ws = new WebSocket(`${WS_URL}/ws/${userId}`);
+        // CHANGED: Connect using query param token instead of path param
+        this.ws = new WebSocket(`${WS_URL}/ws?token=${token}`);
 
         this.ws.onopen = () => {
           console.log('WebSocket connected');
@@ -44,7 +52,7 @@ class WebSocketService {
         this.ws.onclose = () => {
           console.log('WebSocket disconnected');
           this.isConnecting = false;
-          this.handleReconnect(userId);
+          this.handleReconnect();
         };
       } catch (error) {
         console.error('WebSocket connection error:', error);
@@ -54,12 +62,12 @@ class WebSocketService {
     });
   }
 
-  handleReconnect(userId) {
+  handleReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       console.log(`Reconnecting... Attempt ${this.reconnectAttempts}`);
       setTimeout(() => {
-        this.connect(userId);
+        this.connect();
       }, this.reconnectDelay);
     } else {
       console.error('Max reconnection attempts reached');
@@ -73,14 +81,12 @@ class WebSocketService {
     }
   }
 
-  // Subscribe to events
   on(eventType, callback) {
     if (!this.eventHandlers.has(eventType)) {
       this.eventHandlers.set(eventType, new Set());
     }
     this.eventHandlers.get(eventType).add(callback);
 
-    // Return unsubscribe function
     return () => {
       const handlers = this.eventHandlers.get(eventType);
       if (handlers) {
@@ -89,7 +95,6 @@ class WebSocketService {
     };
   }
 
-  // Alias for 'on'
   subscribeToEvent(eventType, callback) {
     return this.on(eventType, callback);
   }
@@ -119,7 +124,7 @@ class WebSocketService {
 
   disconnect() {
     if (this.ws) {
-      this.reconnectAttempts = this.maxReconnectAttempts; // Prevent reconnection
+      this.reconnectAttempts = this.maxReconnectAttempts;
       this.ws.close();
       this.ws = null;
     }
@@ -130,6 +135,5 @@ class WebSocketService {
   }
 }
 
-// Create and export a single instance
 const websocketService = new WebSocketService();
 export default websocketService;
