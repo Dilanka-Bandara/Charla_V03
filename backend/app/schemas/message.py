@@ -17,7 +17,7 @@ class ReactionResponse(BaseModel):
     id: int
     emoji: str
     user_id: int
-    username: str
+    username: Optional[str] = "Unknown" # Made optional for safety
     created_at: datetime
     
     class Config:
@@ -27,7 +27,8 @@ class MessageResponse(BaseModel):
     id: int
     content: str
     message_type: str
-    file_url: Optional[str]
+    file_url: Optional[str] = None
+    file_name: Optional[str] = None  # ADDED: This ensures file_name is passed to frontend
     user_id: int
     username: str
     avatar_url: str

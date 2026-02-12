@@ -201,13 +201,25 @@ def get_room_messages(
             "timestamp": msg.timestamp,
             "username": user.username if user else "Unknown",
             "avatar_color": user.avatar_color if user else "#6366f1",
+            
+            # --- CRITICAL FIX START ---
+            # [cite_start]These fields are required by MessageResponse schema [cite: 131]
+            "avatar_url": user.avatar_url if user else "default-avatar.png",
+            "reply_to": None,
+            "is_edited": False,
+            "is_read": False,
+            # --- CRITICAL FIX END ---
+            
             "file_url": msg.file_url if hasattr(msg, 'file_url') else None,
             "file_name": msg.file_name if hasattr(msg, 'file_name') else None,
             "reactions": [
                 {
                     "id": r.id,
                     "emoji": r.emoji,
-                    "user_id": r.user_id
+                    "user_id": r.user_id,
+                    "username": r.user.username if r.user else "Unknown", # Added safety
+                    "created_at": r.created_at, # Added created_at
+                    "message_id": r.message_id
                 } for r in msg.reactions
             ]
         })

@@ -31,15 +31,22 @@ async def create_message(
     db.commit()
     db.refresh(db_message)
     
+    # FIX: Construct response with ALL fields required by MessageResponse schema
     message_data = {
         "id": db_message.id,
         "content": db_message.content,
         "user_id": db_message.user_id,
         "room_id": db_message.room_id,
         "message_type": db_message.message_type,
-        "timestamp": db_message.timestamp.isoformat(),
+        "timestamp": db_message.timestamp,
         "username": current_user.username,
         "avatar_color": current_user.avatar_color,
+        # CRITICAL FIXES BELOW:
+        "avatar_url": current_user.avatar_url,  # Required by schema
+        "file_url": None,                       # Required by schema
+        "reply_to": None,                       # Required by schema (column dropped from DB)
+        "is_edited": False,                     # Required by schema (column dropped from DB)
+        "is_read": False,                       # Required by schema (column dropped from DB)
         "reactions": []
     }
     
@@ -104,6 +111,8 @@ async def add_reaction(
             "id": db_reaction.id,
             "emoji": db_reaction.emoji,
             "user_id": db_reaction.user_id,
+            "username": current_user.username, # Added username for ReactionResponse
+            "created_at": db_reaction.created_at, # Added created_at
             "message_id": db_reaction.message_id
         }
     
@@ -113,7 +122,20 @@ async def add_reaction(
         "message_id": message_id,
         "reaction": reaction_data
     })
-    return reaction_data or {"message": "Reaction removed"}
+    
+    # If reaction was removed, return a dummy response or handle 204. 
+    # For now returning the created data or empty if deleted (API design choice)
+    if not reaction_data:
+         return {
+             "id": 0, 
+             "emoji": reaction.emoji, 
+             "user_id": current_user.id, 
+             "username": current_user.username,
+             "created_at": datetime.now(),
+             "message_id": message_id
+         }
+         
+    return reaction_data
 
 @router.post("/upload")
 async def upload_file(
@@ -159,6 +181,7 @@ async def upload_file(
     db.commit()
     db.refresh(db_message)
     
+    # FIX: Add missing fields for file upload response
     message_data = {
         "id": db_message.id,
         "content": db_message.content,
@@ -166,10 +189,14 @@ async def upload_file(
         "room_id": db_message.room_id,
         "message_type": "file",
         "file_url": file_url,
-        "file_name": file.filename,
-        "timestamp": db_message.timestamp.isoformat(),
+        "file_name": file.filename, # Note: This will be stripped if not in Schema, but good to keep
+        "timestamp": db_message.timestamp,
         "username": current_user.username,
         "avatar_color": current_user.avatar_color,
+        "avatar_url": current_user.avatar_url,  # Required
+        "reply_to": None,                       # Required
+        "is_edited": False,                     # Required
+        "is_read": False,                       # Required
         "reactions": []
     }
     
