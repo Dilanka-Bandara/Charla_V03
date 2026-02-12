@@ -31,7 +31,7 @@ async def create_message(
     db.commit()
     db.refresh(db_message)
     
-    # FIX: Construct response with ALL fields required by MessageResponse schema
+    # FIX: Added all fields required by the strict Pydantic schema
     message_data = {
         "id": db_message.id,
         "content": db_message.content,
@@ -41,12 +41,12 @@ async def create_message(
         "timestamp": db_message.timestamp,
         "username": current_user.username,
         "avatar_color": current_user.avatar_color,
-        # CRITICAL FIXES BELOW:
-        "avatar_url": current_user.avatar_url,  # Required by schema
-        "file_url": None,                       # Required by schema
-        "reply_to": None,                       # Required by schema (column dropped from DB)
-        "is_edited": False,                     # Required by schema (column dropped from DB)
-        "is_read": False,                       # Required by schema (column dropped from DB)
+        "avatar_url": current_user.avatar_url,  # REQUIRED FIX
+        "file_url": None,
+        "file_name": None,
+        "reply_to": None,                       # REQUIRED FIX
+        "is_edited": False,                     # REQUIRED FIX
+        "is_read": False,                       # REQUIRED FIX
         "reactions": []
     }
     
@@ -107,35 +107,36 @@ async def add_reaction(
         db.add(db_reaction)
         db.commit()
         db.refresh(db_reaction)
+        
+        # FIX: Added username and created_at which are required by ReactionResponse
         reaction_data = {
             "id": db_reaction.id,
             "emoji": db_reaction.emoji,
             "user_id": db_reaction.user_id,
-            "username": current_user.username, # Added username for ReactionResponse
-            "created_at": db_reaction.created_at, # Added created_at
-            "message_id": db_reaction.message_id
+            "message_id": db_reaction.message_id,
+            "username": current_user.username,  # REQUIRED FIX
+            "created_at": db_reaction.created_at # REQUIRED FIX
         }
     
-    await manager.broadcast_to_room(message.room_id, {
-        "type": "message_reaction",
-        "room_id": message.room_id,
+    if reaction_data:
+        await manager.broadcast_to_room(message.room_id, {
+            "type": "message_reaction",
+            "room_id": message.room_id,
+            "message_id": message_id,
+            "reaction": reaction_data
+        })
+        return reaction_data
+        
+    # If reaction was removed (toggle off), we still need to return something valid
+    # or handle it on frontend. Returning a dummy object to satisfy schema
+    return {
+        "id": 0,
+        "emoji": reaction.emoji,
+        "user_id": current_user.id,
         "message_id": message_id,
-        "reaction": reaction_data
-    })
-    
-    # If reaction was removed, return a dummy response or handle 204. 
-    # For now returning the created data or empty if deleted (API design choice)
-    if not reaction_data:
-         return {
-             "id": 0, 
-             "emoji": reaction.emoji, 
-             "user_id": current_user.id, 
-             "username": current_user.username,
-             "created_at": datetime.now(),
-             "message_id": message_id
-         }
-         
-    return reaction_data
+        "username": current_user.username,
+        "created_at": datetime.now()
+    }
 
 @router.post("/upload")
 async def upload_file(
@@ -181,7 +182,7 @@ async def upload_file(
     db.commit()
     db.refresh(db_message)
     
-    # FIX: Add missing fields for file upload response
+    # FIX: Added all missing fields for file upload response
     message_data = {
         "id": db_message.id,
         "content": db_message.content,
@@ -189,14 +190,14 @@ async def upload_file(
         "room_id": db_message.room_id,
         "message_type": "file",
         "file_url": file_url,
-        "file_name": file.filename, # Note: This will be stripped if not in Schema, but good to keep
+        "file_name": file.filename,
         "timestamp": db_message.timestamp,
         "username": current_user.username,
         "avatar_color": current_user.avatar_color,
-        "avatar_url": current_user.avatar_url,  # Required
-        "reply_to": None,                       # Required
-        "is_edited": False,                     # Required
-        "is_read": False,                       # Required
+        "avatar_url": current_user.avatar_url,  # REQUIRED FIX
+        "reply_to": None,                       # REQUIRED FIX
+        "is_edited": False,                     # REQUIRED FIX
+        "is_read": False,                       # REQUIRED FIX
         "reactions": []
     }
     
