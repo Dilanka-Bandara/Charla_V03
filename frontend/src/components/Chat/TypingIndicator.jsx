@@ -1,13 +1,24 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext'; // Added Import
 import './TypingIndicator.css';
 
 const TypingIndicator = ({ users }) => {
-  const displayText = users.length === 1
-    ? `${users[0]} is typing`
-    : users.length === 2
-    ? `${users[0]} and ${users[1]} are typing`
-    : `${users.length} people are typing`;
+  const { user } = useAuth(); // Get current user
+
+  // Filter out the current user's username
+  const filteredUsers = users.filter(u => u !== user?.username);
+
+  // If nobody else is typing, don't render anything
+  if (filteredUsers.length === 0) {
+    return null;
+  }
+
+  const displayText = filteredUsers.length === 1
+    ? `${filteredUsers[0]} is typing`
+    : filteredUsers.length === 2
+    ? `${filteredUsers[0]} and ${filteredUsers[1]} are typing`
+    : `${filteredUsers.length} people are typing`;
 
   return (
     <motion.div

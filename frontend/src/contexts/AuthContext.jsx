@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { login as loginAPI, register as registerAPI } from '../services/api';
 import toast from 'react-hot-toast';
+import websocketService from '../services/websocket'; // Added Import
 
 const AuthContext = createContext(null);
 
@@ -51,7 +52,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       const response = await loginAPI(username, password);
-      const { access_token, user: userData } = response.data; // Ensure we access .data
+      const { access_token, user: userData } = response.data; 
       
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -63,7 +64,6 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error("Login Error:", error);
-      // FIX: Use helper to get string message, preventing object rendering crash
       const msg = getErrorMessage(error);
       toast.error(msg);
       return false;
@@ -73,7 +73,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (username, email, password, fullName) => {
     try {
       const response = await registerAPI(username, email, password, fullName);
-      const { access_token, user: userData } = response.data; // Ensure we access .data
+      const { access_token, user: userData } = response.data; 
       
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -85,7 +85,6 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error("Registration Error:", error);
-      // FIX: Use helper to get string message
       const msg = getErrorMessage(error);
       toast.error(msg);
       return false;
@@ -93,6 +92,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // CRITICAL FIX: Disconnect WebSocket on logout
+    websocketService.disconnect();
+    
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);

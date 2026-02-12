@@ -35,6 +35,10 @@ async def websocket_endpoint(
     # 3. Accept connection and pass username for typing indicator logic
     await manager.connect(websocket, user.id, user.username)
     
+    # FIX: Update User Status to Online
+    user.is_online = True
+    db.commit()
+    
     try:
         while True:
             data = await websocket.receive_text()
@@ -56,6 +60,13 @@ async def websocket_endpoint(
                 
     except WebSocketDisconnect:
         await manager.disconnect(user.id)
+        # FIX: Update User Status to Offline
+        user.is_online = False
+        db.commit()
+        
     except Exception as e:
         print(f"WebSocket error for user {user.id}: {e}")
         await manager.disconnect(user.id)
+        # FIX: Update User Status to Offline on error
+        user.is_online = False
+        db.commit()

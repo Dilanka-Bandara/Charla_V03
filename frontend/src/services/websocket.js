@@ -125,8 +125,11 @@ class WebSocketService {
   disconnect() {
     if (this.ws) {
       this.reconnectAttempts = this.maxReconnectAttempts;
+      // CRITICAL FIX: Nullify onclose to prevent auto-reconnect logic from firing
+      this.ws.onclose = null; 
       this.ws.close();
       this.ws = null;
+      this.isConnecting = false;
     }
   }
 
